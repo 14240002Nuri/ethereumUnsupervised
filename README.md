@@ -1,61 +1,137 @@
-# Enhanced Ethereum Anomaly Detection Pipeline (Q1/Q2 Scopus)
+# Unsupervised Anomaly Detection on Ethereum Transactions Using Graph-Based Features
 
-Pipeline lengkap, **single-file**, dan **langsung bisa di-run** untuk
-unsupervised anomaly detection pada data transaksi Ethereum, dengan semua
-enhancement yang dibutuhkan untuk publikasi Scopus Q1/Q2:
+[![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](https://www.python.org/)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)]()
 
-- 6 baseline models: Isolation Forest, LOF, PCA, One-Class SVM, COPOD, Autoencoder
-- Multi-seed evaluation (≥5 seeds dengan mean ± std)
-- Statistical tests: Friedman χ² + Wilcoxon pairwise + Bonferroni correction
-- 11 graph topological features (PageRank, betweenness, closeness, eigenvector, HITS, k-core, dst)
-- Contamination sensitivity sweep
-- External validation via Precision@k, Recall@k, AUC-ROC
-- SHAP / permutation feature importance
-- Reproducibility metadata (env hash, data hash, library versions)
-- Computational profiling (runtime + memory per stage)
-- Publication-ready plots (300 DPI) dan paper-ready tables
+This repository contains the full implementation for the thesis research on unsupervised anomaly detection in Ethereum blockchain transaction networks. The pipeline constructs a transaction graph from on-chain data, extracts graph topological features alongside transactional features, and evaluates six unsupervised anomaly detection models under a rigorous multi-seed cross-validation framework with statistical significance testing.
 
-## Quickstart
+---
 
-### Instalasi
+## Table of Contents
+
+- [Overview](#overview)
+- [Repository Structure](#repository-structure)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Data Source](#data-source)
+- [Usage](#usage)
+  - [Mode 1: Demo with Synthetic Data](#mode-1-demo-with-synthetic-data)
+  - [Mode 2: Real Ethereum Data via BigQuery](#mode-2-real-ethereum-data-via-bigquery)
+  - [Mode 3: Cross-Feature-Set Comparison](#mode-3-cross-feature-set-comparison)
+- [Feature Sets](#feature-sets)
+- [Models](#models)
+- [Evaluation Framework](#evaluation-framework)
+- [Output Files](#output-files)
+- [Reproducing Paper Results](#reproducing-paper-results)
+- [Citation](#citation)
+
+---
+
+## Overview
+
+Anomaly detection on blockchain networks is challenging due to the absence of ground-truth labels, high transaction volume, and the complex relational structure of address interactions. This work proposes a graph-based unsupervised framework that:
+
+1. Constructs a directed weighted transaction graph from raw Ethereum transaction data.
+2. Extracts **11 graph topological features** per address node (PageRank, betweenness centrality, closeness centrality, eigenvector centrality, HITS authority/hub scores, k-core number, in/out degree, weighted degree).
+3. Evaluates three feature sets — **transactional**, **graph**, and **hybrid** — across **six unsupervised models**.
+4. Applies a **30-seed multi-fold cross-validation** protocol with Friedman χ² and Wilcoxon signed-rank post-hoc tests (Bonferroni-corrected) to substantiate model comparison claims.
+5. Validates findings against externally labeled addresses (Etherscan phishing tags) via Precision@k, Recall@k, and AUC-ROC.
+
+---
+
+## Repository Structure
+
+```
+.
+├── eth_anomaly_detection_graph_based_cv_novelty.py   # Core pipeline: BigQuery integration + graph feature extraction
+├── fetch_bq_realtime_and_analyze.py                  # Fetch real-time Ethereum data from BigQuery and run analysis
+├── run_enhanced_pipeline.py                           # Enhanced single-file pipeline with demo mode (no BigQuery needed)
+├── run_all_feature_sets.py                            # Wrapper: runs all three feature sets and produces combined tables
+├── requirements.txt                                   # Python dependencies
+└── README.md
+```
+
+---
+
+## Requirements
+
+| Package | Version | Role |
+|---------|---------|------|
+| Python | ≥ 3.9 | Runtime |
+| numpy | ≥ 1.24 | Numerical operations |
+| pandas | ≥ 2.0 | Data manipulation |
+| scipy | ≥ 1.10 | Statistical tests |
+| scikit-learn | ≥ 1.3 | ML models, cross-validation |
+| networkx | ≥ 3.0 | Graph construction and centrality |
+| matplotlib | ≥ 3.7 | Publication-ready figures |
+| pyod | ≥ 2.0 | COPOD baseline |
+| shap | ≥ 0.43 | SHAP feature importance |
+| psutil | ≥ 5.9 | Memory/runtime profiling |
+| scikit-posthocs | ≥ 0.7 | Nemenyi post-hoc test |
+
+**BigQuery dependencies** (only required for real data mode):
+
+```
+google-cloud-bigquery>=3.13
+pyarrow>=14.0
+db-dtypes>=1.2
+google-auth-oauthlib>=1.1
+```
+
+---
+
+## Installation
+
 ```bash
+# 1. Clone the repository
+git clone https://github.com/14240002Nuri/ethereumUnsupervised.git
+cd ethereumUnsupervised
+
+# 2. Create and activate a virtual environment (recommended)
+python -m venv .venv
+# Windows:
+.venv\Scripts\activate
+# Linux/macOS:
+source .venv/bin/activate
+
+# 3. Install dependencies
 pip install -r requirements.txt
 ```
 
-### Mode 1: Demo (synthetic data) — 30 detik
+---
+
+## Data Source
+
+This study uses the **Google BigQuery public dataset** `bigquery-public-data.crypto_ethereum.transactions`, which contains all Ethereum mainnet transactions. The dataset is publicly available and queryable at no cost within BigQuery free-tier limits (1 TB/month).
+
+To access real data, you need:
+1. A [Google Cloud](https://cloud.google.com/) project with BigQuery API enabled.
+2. An OAuth 2.0 Desktop App credential file (`client_secret.json`) downloaded from the Google Cloud Console.
+3. Place `client_secret.json` in the project root directory.
+
+First-time authentication will open a browser window for Google account authorization. Credentials are cached locally in `bigquery_user_token.json` for subsequent runs.
+
+> **Privacy note:** Do not commit `client_secret.json` or `bigquery_user_token.json` to version control. These files are excluded via `.gitignore`.
+
+---
+
+## Usage
+
+### Mode 1: Demo with Synthetic Data
+
+No BigQuery account required. Generates synthetic Ethereum-like transaction data, injects known anomalies, and runs the full pipeline.
+
 ```bash
 python run_enhanced_pipeline.py
 ```
-Pipeline akan generate ~5000 nodes synthetic Ethereum-like data,
-inject anomali, jalankan seluruh pipeline, dan output di `outputs_q1_pipeline/`.
 
-### Mode 2: Pakai data BigQuery existing
-Saudara harus punya CSV transaksi dari script BigQuery sebelumnya, dengan kolom:
-`tx_hash, value, gas, gas_price, block_timestamp, from_address, to_address`.
+**Custom parameters:**
 
-```bash
-python run_enhanced_pipeline.py --input-csv path/to/transactions.csv
-```
-
-Optional: kalau punya labeled addresses (Etherscan tags):
 ```bash
 python run_enhanced_pipeline.py \
-    --input-csv transactions.csv \
-    --labels-csv etherscan_phishing_labels.csv
-```
-
-Format `labels-csv`:
-```
-address,label
-0xabc...,phishing
-0xdef...,exchange-hack
-```
-
-### Mode 3: Konfigurasi custom
-```bash
-python run_enhanced_pipeline.py \
-    --n-nodes 10000 \
-    --n-tx 100000 \
+    --n-nodes 5000 \
+    --n-tx 50000 \
     --seeds 42,0,1,7,100,2023,2024 \
     --n-splits 5 \
     --contamination 0.02 \
@@ -64,150 +140,277 @@ python run_enhanced_pipeline.py \
     --output-dir outputs_my_run
 ```
 
-### Skip stages tertentu (untuk testing cepat)
+**Skip heavy stages for a quick test:**
+
 ```bash
 python run_enhanced_pipeline.py --skip sensitivity,shap
 ```
+
 Available stages to skip: `sensitivity`, `shap`, `modern`, `external`.
+
+Expected runtime: ~30 seconds (default synthetic size).
+
+---
+
+### Mode 2: Real Ethereum Data via BigQuery
+
+#### Step 2a — Fetch and analyze in one command
+
+```bash
+python fetch_bq_realtime_and_analyze.py
+```
+
+Fetches the most recent 7 days of Ethereum transactions (up to 500,000 records) and runs the full detection pipeline. Output is saved in `outputs_realtime_YYYYMMDD_HHMMSS/`.
+
+**Custom date range and volume:**
+
+```bash
+python fetch_bq_realtime_and_analyze.py \
+    --start-date 2025-01-01 \
+    --end-date 2025-03-31 \
+    --limit 1000000 \
+    --feature-set hybrid
+```
+
+**Use cached data (skip re-querying BigQuery):**
+
+```bash
+python fetch_bq_realtime_and_analyze.py --use-cache
+```
+
+#### Step 2b — Core pipeline with an existing CSV
+
+If you already have a transaction CSV with columns `tx_hash, value, gas, gas_price, block_timestamp, from_address, to_address`:
+
+```bash
+python run_enhanced_pipeline.py --input-csv path/to/transactions.csv
+```
+
+**With externally labeled addresses for validation** (e.g., Etherscan phishing tags):
+
+```bash
+python run_enhanced_pipeline.py \
+    --input-csv transactions.csv \
+    --labels-csv etherscan_labels.csv
+```
+
+Expected format for `labels-csv`:
+
+```
+address,label
+0xabc123...,phishing
+0xdef456...,exchange-hack
+```
+
+**Estimated runtimes for real data:**
+
+| Dataset size | Estimated time |
+|---|---|
+| 100,000 addresses | ~5–10 minutes |
+| 500,000 addresses | ~30–60 minutes |
+| 1,000,000 addresses | ~2–4 hours |
+
+For large datasets, start with `--max-edges 50000` and `--skip sensitivity` to verify the pipeline before a full run.
+
+---
+
+### Mode 3: Cross-Feature-Set Comparison
+
+Runs all three feature sets (transactional, graph, hybrid) sequentially and produces unified comparison tables required for Hypothesis H2 validation.
+
+```bash
+python run_all_feature_sets.py
+```
+
+**With an existing parquet cache:**
+
+```bash
+python run_all_feature_sets.py \
+    --from-parquet bq_cache_eth_transactions/transactions_2025-01-01_2025-01-31.parquet
+```
+
+**Reuse an existing hybrid run to save time:**
+
+```bash
+python run_all_feature_sets.py \
+    --from-parquet bq_cache_eth_transactions/transactions.parquet \
+    --reuse-hybrid outputs_realtime_20260506_155941
+```
+
+Estimated runtime: 4–8 hours (all three feature sets, 30 seeds).
+
+---
+
+## Feature Sets
+
+| Feature Set | Description | Dimensionality |
+|---|---|---|
+| `transactional` | Raw transaction statistics per address: total value, gas usage, transaction count, active days, avg inter-arrival time | 8 features |
+| `graph` | Graph topological features derived from the directed weighted transaction graph | 11 features |
+| `hybrid` | Concatenation of transactional and graph features | 19 features |
+
+**Graph topological features (11):**
+
+| Feature | Description |
+|---|---|
+| PageRank | Global influence score |
+| Betweenness centrality | Bridge/relay position in network |
+| Closeness centrality | Average shortest path to all nodes |
+| Eigenvector centrality | Connection to high-influence nodes |
+| HITS authority score | Receive-side importance |
+| HITS hub score | Send-side importance |
+| K-core number | Participation in densely connected subgraphs |
+| In-degree / out-degree | Number of unique senders/receivers |
+| Weighted in-degree / out-degree | Total ETH received/sent |
+
+---
+
+## Models
+
+| Model | Algorithm type | Library |
+|---|---|---|
+| Isolation Forest | Ensemble tree-based | scikit-learn |
+| LOF | Density-based | scikit-learn |
+| PCA Reconstruction | Linear dimensionality reduction | scikit-learn |
+| One-Class SVM | Kernel-based boundary | scikit-learn |
+| COPOD | Copula-based | PyOD |
+| Autoencoder (MLP) | Neural reconstruction | scikit-learn (MLPRegressor) |
+
+All models are trained in a fully unsupervised setting (no labels used during training).
+
+---
+
+## Evaluation Framework
+
+### Multi-Seed Cross-Validation
+- **30 random seeds** (42, 0, 1, 7, 100, 2023, 2024, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103)
+- **5-fold cross-validation** per seed
+- Primary metric: **Jaccard similarity** between top-k anomaly sets across folds
+- Reported as: `mean ± std` over 30 seeds
+
+### Statistical Testing
+1. **Friedman χ² test** — non-parametric test for overall model ranking differences
+2. **Wilcoxon signed-rank test** — pairwise post-hoc comparison
+3. **Bonferroni correction** — family-wise error rate control
+
+### External Validation (if labeled data available)
+- Precision@k (k = 10, 50, 100)
+- Recall@k
+- AUC-ROC
+
+### Sensitivity Analysis
+- Contamination ratio sweep: {0.005, 0.01, 0.02, 0.05, 0.10}
+
+---
 
 ## Output Files
 
 ```
-outputs_q1_pipeline/
-├── multi_seed_results.csv          # Multi-seed CV (per seed × per model)
-├── statistical_tests.json          # Friedman + Wilcoxon (untuk klaim signifikansi)
-├── contamination_sensitivity.csv   # Sensitivity sweep (untuk robustness section)
-├── full_pred_with_baselines.csv    # Hasil ensemble + 6 model scores
-├── external_validation.json        # Precision@k, Recall@k, AUC-ROC
-├── feature_importance.csv          # Permutation + SHAP importance
-├── computational_profile.csv       # Runtime + memory per stage
-├── experiment_metadata.json        # Reproducibility info
+outputs_*/
+├── multi_seed_results.csv           # Per-seed × per-model Jaccard scores
+├── statistical_tests.json           # Friedman χ², Wilcoxon p-values
+├── contamination_sensitivity.csv    # Model stability across contamination levels
+├── full_pred_with_baselines.csv     # Anomaly scores for all addresses
+├── external_validation.json         # Precision@k, Recall@k, AUC-ROC
+├── feature_importance.csv           # SHAP + permutation importance rankings
+├── computational_profile.csv        # Runtime and memory per pipeline stage
+├── experiment_metadata.json         # Library versions, data hash (reproducibility)
 ├── plots/
-│   ├── fig01_seed_distribution.png    # Box plot stability per model
-│   ├── fig02_model_comparison.png     # Bar chart mean ± std
-│   ├── fig03_sensitivity.png          # Line plot contamination
-│   ├── fig04_feature_importance.png   # Top-15 features
-│   └── fig05_external_validation.png  # P@k & R@k curves
+│   ├── fig01_seed_distribution.png  # Boxplot: score stability per model
+│   ├── fig02_model_comparison.png   # Barplot: mean ± std across seeds
+│   ├── fig03_sensitivity.png        # Line plot: contamination sensitivity
+│   ├── fig04_feature_importance.png # Top-15 features
+│   └── fig05_external_validation.png
 └── paper_tables/
-    ├── table_seed_summary.csv         # Tabel multi-seed
-    ├── table_friedman.csv             # Tabel uji statistik
-    ├── table_friedman_header.json     # Friedman χ², p-value
-    ├── table_sensitivity.csv          # Tabel sensitivity (wide format)
-    ├── table_external_val.csv         # Tabel external validation
-    └── table_top10_anomalies.csv      # Top 10 anomalies untuk case study
+    ├── table_seed_summary.csv       # Table: multi-seed results (paper-ready)
+    ├── table_friedman.csv           # Table: statistical test results
+    ├── table_sensitivity.csv        # Table: sensitivity analysis (wide format)
+    ├── table_external_val.csv       # Table: external validation metrics
+    └── table_top10_anomalies.csv    # Top 10 detected anomalous addresses
 ```
 
-## Mapping Output ke Section Paper
-
-| Section Paper | File yang Dipakai |
-|---|---|
-| Abstract / Conclusion | `multi_seed_results.csv`, `external_validation.json` |
-| Methodology — Pipeline diagram | `experiment_metadata.json` (untuk versi library) |
-| Methodology — Statistical Framework | `statistical_tests.json` |
-| Results — Table 1 (Stability) | `paper_tables/table_seed_summary.csv` |
-| Results — Table 2 (Significance) | `paper_tables/table_friedman.csv` |
-| Results — Figure 1 (Box plot) | `plots/fig01_seed_distribution.png` |
-| Results — Figure 2 (Bar comparison) | `plots/fig02_model_comparison.png` |
-| Results — Sensitivity Analysis | `plots/fig03_sensitivity.png`, `paper_tables/table_sensitivity.csv` |
-| Results — External Validation | `plots/fig05_external_validation.png`, `paper_tables/table_external_val.csv` |
-| Discussion — Feature Importance | `plots/fig04_feature_importance.png`, `feature_importance.csv` |
-| Discussion — Case Study | `paper_tables/table_top10_anomalies.csv` |
-| Computational Cost section | `computational_profile.csv` |
-| Reproducibility Statement | `experiment_metadata.json` |
-
-## Sample Output (dari run synthetic 2000 nodes / 15000 tx)
+**Cross-feature-set comparison** (from `run_all_feature_sets.py`):
 
 ```
-Multi-seed Summary (jaccard_mean):
-  Isolation Forest         : 0.8686 ± 0.0169  ← MOST STABLE
-  LOF                      : 0.7733 ± 0.0246
-  PCA Reconstruction       : 0.6871 ± 0.0735
-  One-Class SVM            : 0.8603 ± 0.0497
-  COPOD                    : (not installed)
-  Autoencoder (MLP)        : 0.8254 ± 0.1307
-
-Friedman χ² = 10.24, p = 0.037 (SIGNIFICANT at α=0.05)
-
-External Validation:
-  AUC-ROC = 0.992
-  Precision@10  = 0.500
-  Precision@50  = 0.480
-  Precision@100 = 0.300
-  Recall@100    = 1.000  ← all 30 anomalies in top-100
-
-Top 5 Features (permutation importance):
-  betweenness_centrality      : 0.0060
-  closeness_centrality        : 0.0048
-  degree_centrality_undirected: 0.0045
-  weighted_out_degree         : 0.0044
-  total_tx_count              : 0.0040
+outputs_all_feature_sets/
+├── combined_multi_seed_results.csv  # 3 feature sets × 6 models × 30 seeds
+├── combined_statistical_tests.json  # Friedman per feature set
+├── combined_table_seed_summary.csv  # 18-row paper table
+└── by_feature_set/
+    ├── transactional/
+    ├── graph/
+    └── hybrid/
 ```
 
-## Mapping ke Tesis Saudara
+---
 
-Pipeline ini **tidak menggantikan** script BigQuery existing Saudara —
-melainkan **melengkapinya dengan rigor metodologis Q1/Q2**.
+## Reproducing Paper Results
 
-| Komponen Tesis | Komponen Pipeline Ini |
-|---|---|
-| BAB III metodologi | Tetap pakai (script BigQuery existing) |
-| Tabel 4 (CV results) | **Replace** dengan `paper_tables/table_seed_summary.csv` |
-| Tabel 5 (Top-k Jaccard) | **Augment** dengan `paper_tables/table_friedman.csv` |
-| Tabel 8 (Feature importance) | **Replace** dengan `feature_importance.csv` (lebih rigor) |
-| Validasi Etherscan (3 address) | **Replace** dengan `external_validation.json` (Precision@k) |
-| Klaim "PCA paling stabil" | **Validasi** dengan Friedman p-value < 0.05 |
+To reproduce the exact results reported in the paper:
 
-## Troubleshooting
-
-**Q: Saya dapat warning "COPOD not installed"**
-A: Install pyod: `pip install pyod`. Pipeline akan tetap jalan tanpa COPOD.
-
-**Q: Saya dapat warning "SHAP not installed"**
-A: Install shap: `pip install shap`. Pipeline pakai permutation importance saja.
-
-**Q: Ingin pakai data BigQuery real**
-A: Jalankan script BigQuery existing Saudara dulu untuk dapat CSV, lalu:
 ```bash
-python run_enhanced_pipeline.py --input-csv hasil_query.csv
+# Step 1: Fetch data for the study period
+python fetch_bq_realtime_and_analyze.py \
+    --start-date 2025-01-01 \
+    --end-date 2025-03-31 \
+    --limit 500000
+
+# Step 2: Run all feature sets with 30 seeds
+python run_all_feature_sets.py \
+    --from-parquet bq_cache_eth_transactions/transactions_2025-01-01_2025-03-31.parquet
+
+# Step 3: Check experiment_metadata.json to verify data hash and library versions
 ```
 
-**Q: Berapa lama runtime untuk data sungguhan (1 juta address)?**
-A: Estimasi:
-- 100K nodes: ~5-10 menit
-- 500K nodes: ~30-60 menit
-- 1M nodes: ~2-4 jam (terutama di betweenness centrality)
-Strategi: pakai `--max-edges` lebih kecil (e.g., 50000) dan `--skip sensitivity`
-untuk test cepat dulu.
+The file `experiment_metadata.json` in each output directory records:
+- SHA-256 hash of the input dataset
+- Python and library versions
+- Random seeds used
+- Timestamp of the experiment
 
-**Q: Pipeline crash di feature engineering?**
-A: Coba kurangi `--max-edges` (default 100000). Untuk dataset besar, mulai dari
-20000 dan naikkan bertahap.
+This enables verification that results were produced from the same data and environment.
+
+---
 
 ## Citation
 
-Jika Saudara pakai pipeline ini di publikasi, mohon cite paper-paper berikut:
+If you use this code or methodology in your research, please cite the following work:
 
-- **Isolation Forest:** Liu, Ting, Zhou (2008). ICDM.
-- **LOF:** Breunig et al. (2000). SIGMOD.
-- **One-Class SVM:** Schölkopf et al. (2001). Neural Computation.
-- **COPOD:** Li et al. (2020). ICDM.
-- **Friedman test:** Demšar (2006). JMLR.
-- **PyOD:** Zhao et al. (2019). JMLR.
-- **NetworkX:** Hagberg et al. (2008).
+```
+[Author]. (2026). Unsupervised Anomaly Detection on Ethereum Transactions
+Using Graph-Based Features. [Journal Name]. [DOI pending]
+```
+
+This implementation also builds on the following prior work:
+
+```
+Liu, F.T., Ting, K.M., & Zhou, Z.H. (2008). Isolation Forest.
+  In Proc. ICDM 2008. https://doi.org/10.1109/ICDM.2008.17
+
+Breunig, M.M., Kriegel, H.P., Ng, R.T., & Sander, J. (2000).
+  LOF: Identifying Density-Based Local Outliers. In Proc. SIGMOD 2000.
+
+Schölkopf, B., Platt, J.C., Shawe-Taylor, J., Smola, A.J., & Williamson, R.C. (2001).
+  Estimating the Support of a High-Dimensional Distribution.
+  Neural Computation, 13(7), 1443–1471.
+
+Li, Z., Zhao, Y., Botta, N., Ionescu, C., & Hu, X. (2020).
+  COPOD: Copula-Based Outlier Detection. In Proc. ICDM 2020.
+
+Zhao, Y., Nasrullah, Z., & Li, Z. (2019).
+  PyOD: A Python Toolbox for Scalable Outlier Detection.
+  Journal of Machine Learning Research, 20(96), 1–7.
+
+Demšar, J. (2006). Statistical Comparisons of Classifiers over Multiple Data Sets.
+  Journal of Machine Learning Research, 7, 1–30.
+
+Hagberg, A.A., Schult, D.A., & Swart, P.J. (2008).
+  Exploring Network Structure, Dynamics, and Function using NetworkX.
+  In Proc. SciPy 2008.
+```
+
+---
 
 ## License
 
-Free to use, modify, and redistribute. Citation appreciated.
-
-## Author Note
-
-Pipeline ini dibuat sebagai panduan praktis transformasi script tesis S2 ke
-publikasi Scopus Q1/Q2. Ini **bukan** state-of-the-art (tidak ada GNN), tapi
-**solid baseline** yang akan lolos di Q2-Q3 dan jadi fondasi untuk paper Q1
-selanjutnya (dengan tambahan GNN baseline + multi-window evaluation).
-
-Untuk Q1 sebenarnya, tambahkan:
-- GraphSAGE / GAT baseline (PyTorch Geometric)
-- Multi-window evaluation (≥3 time periods)
-- Real-world case study (1 known exploit)
-- External labeled dataset (Etherscan phishing tags atau XBlock-ETH)
+This project is released under the MIT License. You are free to use, modify, and distribute this code for academic and commercial purposes, provided that appropriate credit is given.
