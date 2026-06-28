@@ -1,0 +1,31 @@
+# Credentials & secrets — JANGAN pernah di-commit
+client_secret.json
+client_secret_desktopapp.json
+bigquery_user_token.json
+bigquery_user_token_*.bak.json
+
+# Cache & BigQuery local cache
+bq_cache_eth_transactions/
+bq_cache_realtime/
+
+# Python virtual environments
+.venv/
+.venv_blocked/
+__pycache__/
+.codex_pycache/
+*.pyc
+*.pyo
+
+# Output directories (besar, tidak perlu di-repo)
+outputs_*/
+*.zip
+
+# Log files
+*.log
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Claude
+.claude/

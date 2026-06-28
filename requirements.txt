@@ -1,0 +1,30 @@
+# ============================================================================
+# REQUIREMENTS untuk run_enhanced_pipeline.py
+# ============================================================================
+# Install: pip install -r requirements.txt
+# Atau:    py -3 -m pip install -r requirements.txt
+# ============================================================================
+
+# === CORE (WAJIB) ===
+numpy>=1.24
+pandas>=2.0
+scipy>=1.10
+scikit-learn>=1.3
+networkx>=3.0
+matplotlib>=3.7
+
+# === OPTIONAL (untuk fitur tambahan, tetap akan jalan tanpa ini) ===
+# COPOD baseline (PyOD library):
+pyod>=2.0
+# SHAP feature importance (lebih informatif daripada permutation):
+shap>=0.43
+# Memory profiling (untuk computational profile):
+psutil>=5.9
+# Nemenyi post-hoc test (alternative to Wilcoxon):
+scikit-posthocs>=0.7
+
+# === BIGQUERY (kalau pakai data real, bukan synthetic) ===
+# google-cloud-bigquery>=3.13
+# pyarrow>=14.0
+# db-dtypes>=1.2
+# google-auth-oauthlib>=1.1
